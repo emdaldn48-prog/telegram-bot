@@ -1,107 +1,93 @@
-import os
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# جلب التوكن من Environment Variable
-TOKEN = os.getenv("BOT_TOKEN")
+# إعدادات تسجيل الدخول
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+)
 
-# قواميس لحفظ الدعوات
+# توكن البوت
+TOKEN = "7995911244:AAFBGU7m-XzbNAu31lNRGrAp8eHva0bKxSU"
+
+# تخزين الدعوات لكل مستخدم
 user_invites = {}
 
-# رسالة البداية
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# قائمة أزرار البداية
+def main_menu():
     keyboard = [
-        [InlineKeyboardButton("🌍 الموقع الرسمي", url="https://agentblog.net/")],
+        [InlineKeyboardButton("🌐 موقعنا", url="https://agentblog.net/")],
         [InlineKeyboardButton("📱 السوشيال ميديا", callback_data="social")],
         [InlineKeyboardButton("ℹ️ عن الموقع", callback_data="about")],
-        [InlineKeyboardButton("💰 برنامج الشراكة والمكافآت", callback_data="partnership")],
         [InlineKeyboardButton("🎁 مكافأة الدعوة", callback_data="reward")]
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup(keyboard)
 
+# أمر البداية
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 أهلاً بك في *بوت AgentBlog الرسمي!*\n\n"
+        "👋 أهلاً بك في *بوت AgentBlog الرسمي!*\\n\\n"
         "اختر من القائمة أدناه للاستفادة من خدماتنا:",
-        reply_markup=reply_markup,
-        parse_mode="Markdown"
+        reply_markup=main_menu(),
+        parse_mode="MarkdownV2"
     )
 
 # التعامل مع الأزرار
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    user_id = query.from_user.id
     await query.answer()
+    user_id = query.from_user.id
 
     if query.data == "social":
         text = (
-            "📱 تابعنا على السوشيال ميديا:\n\n"
-            "🔗 فيسبوك: https://www.facebook.com/profile.php?id=61579717285065\n"
-            "🐦 تويتر: https://x.com/landeragentblog\n"
-            "📸 انستغرام: https://www.instagram.com/landeragentblog/\n"
-            
+            "📱 *السوشيال ميديا*\\n\\n"
+            "تابعنا على جميع منصاتنا:\\n"
+            "- [فيسبوك](https://www.facebook.com/agentblog)\\n"
+            "- [إنستغرام](https://www.instagram.com/agentblog)\\n"
+            "- [تويتر](https://twitter.com/agentblog)\\n"
+            "- [تيك توك](https://www.tiktok.com/@agentblog)"
         )
-        await query.edit_message_text(text)
-
     elif query.data == "about":
         text = (
-            "ℹ️ *عن موقع AgentBlog:*\n\n"
-            "منصة رائدة تهتم بالمقالات، الأخبار، والمحتوى الرقمي المتنوع.\n"
-            "هنا تجد المعرفة والأفكار التي تساعدك على مواكبة التطورات التقنية.\n\n"
-            "🌍 زورنا: https://agentblog.net/"
+            "ℹ️ *عن موقع AgentBlog*\\n\\n"
+            "منصة هايلاندر توفر عوائد مالية مغرية وشراكة حقيقية للمؤثرين، "
+            "مع دعم كامل على مدار الساعة وانتشار سهل عبر جميع المنصات."
         )
-        await query.edit_message_text(text, parse_mode="Markdown")
-
-    elif query.data == "partnership":
-        text = (
-            "💰 *العائد المغري والشراكة مع هايلاندر:*\n\n"
-            " *رابط أفلييت مخصص لك* — تحصل على رابط فريد يحمل اسمك.\n"
-            " *عوائد مالية استثنائية* — كل مشاركة ناجحة تعني ربح مباشر لك.\n"
-            " *انتشار سهل عبر المنصات* — شارك على فيسبوك، انستغرام، تويتر، تيك توك.\n"
-            " *دعم متكامل على مدار الساعة* — نحن معك خطوة بخطوة.\n\n"
-            "✨ ليست مجرد شراكة... إنها فرصة حقيقية لبناء دخل مستمر!"
-        )
-        await query.edit_message_text(text, parse_mode="Markdown")
-
     elif query.data == "reward":
         invites = user_invites.get(user_id, 0)
 
         if invites < 2:
             text = (
-                f"🎁 *مكافأة الدعوة:*\n\n"
-                f"قم بدعوة صديقين للبوت لتحصل على مكافأتك! ✨\n"
-                f"لقد دعوت حتى الآن: *{invites}/2* ✅\n\n"
+                f"🎁 *مكافأة الدعوة:*\\n\\n"
+                f"قم بدعوة صديقين للبوت لتحصل على مكافأتك ✨\\n"
+                f"لقد دعوت حتى الآن: *{invites}/2* ✅\\n\\n"
                 "أرسل رابط البوت لأصدقائك: https://t.me/agentblogagency_bot"
             )
         else:
             text = (
-                "🎉 مبروك! لقد أكملت دعوة شخصين بنجاح.\n\n"
-                "✅ حصلت على مكافأتك الخاصة من AgentBlog! 🚀"
+                "🎉 *مبروك!* لقد أكملت دعوة شخصين بنجاح\\n\\n"
+                "✅ حصلت على مكافأتك الخاصة من AgentBlog 🚀"
             )
-        await query.edit_message_text(text, parse_mode="Markdown")
+    else:
+        text = "❌ خطأ غير معروف"
 
-# أوامر لإضافة الدعوات (تجريبية — يمكن ربطها بنظام إحالات حقيقي لاحقاً)
-async def invite(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.args:
-        await update.message.reply_text("⚠️ استخدم الأمر هكذا: /invite user_id")
-        return
+    await query.edit_message_text(text, parse_mode="MarkdownV2", reply_markup=main_menu())
 
-    inviter_id = update.message.from_user.id
-    invited_id = int(context.args[0])
+# أمر تسجيل دعوة جديدة (تقدر تضيفه مع روابط أفلييت)
+async def add_invite(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.message.from_user.id
+    user_invites[user_id] = user_invites.get(user_id, 0) + 1
+    await update.message.reply_text(
+        f"✅ تم تسجيل دعوة جديدة! عدد الدعوات: {user_invites[user_id]}/2",
+        parse_mode="MarkdownV2"
+    )
 
-    if invited_id == inviter_id:
-        await update.message.reply_text("⚠️ لا يمكنك دعوة نفسك 😅")
-        return
+# بدء التطبيق
+app = ApplicationBuilder().token(TOKEN).build()
 
-    user_invites[inviter_id] = user_invites.get(inviter_id, 0) + 1
-    await update.message.reply_text("✅ تمت إضافة الدعوة! شكراً لمشاركتك البوت 🎁")
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("addinvite", add_invite))
+app.add_handler(CallbackQueryHandler(button_handler))
 
-# تشغيل البوت
-def main():
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("invite", invite))
-    app.add_handler(CallbackQueryHandler(button_handler))
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+print("Bot is running...")
+app.run_polling()
