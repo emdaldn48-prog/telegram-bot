@@ -70,7 +70,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🎁 *مكافأة الدعوة:*\n\n"
                 f"قم بدعوة صديقين للبوت لتحصل على مكافأتك! ✨\n"
                 f"لقد دعوت حتى الآن: *{invites}/2* ✅\n\n"
-                "أرسل رابط البوت لأصدقائك: https://t.me/agentblogagency_bot
+                "أرسل رابط البوت لأصدقائك: https://t.me/agentblogagency_bot"
             )
         else:
             text = (
