@@ -234,7 +234,7 @@ async def cb_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             reply_markup=main_menu(),
         )
 
-      elif query.data == "about":
+       elif query.data == "about":
         await query.message.reply_text(
             "ℹ️ <b>عن موقع AgentBlog</b>\n\n"
             "سواء كنت مؤثرًا يتطلع إلى تحويل شغفه إلى دخل، أو معلنًا يتطلع إلى وصول أقوى، "
@@ -246,6 +246,7 @@ async def cb_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             disable_web_page_preview=True,
             reply_markup=main_menu(),
         )
+
 
 
     elif query.data == "partner":
