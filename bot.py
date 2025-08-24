@@ -226,9 +226,9 @@ async def cb_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await query.message.reply_text(
             "📱 <b>تابعنا على السوشيال ميديا</b>\n\n"
             f"• قناة تيليغرام: <a href='https://t.me/{CHANNEL_USERNAME.lstrip('@')}'>@{CHANNEL_USERNAME.lstrip('@')}</a>\n"
-            "• فيسبوك: <a href='https://www.facebook.com/'>facebook.com</a>\n"
-            "• إنستغرام: <a href='https://www.instagram.com/'>instagram.com</a>\n"
-            "• تويتر / X: <a href='https://twitter.com/'>twitter.com</a>\n",
+            "• فيسبوك: <a href='https://www.facebook.com/profile.php?id=61579717285065'>facebook.com</a>\n"
+            "• إنستغرام: <a href='https://www.instagram.com/landeragentblog/'>instagram.com</a>\n"
+            "• تويتر / X: <a href='https://x.com/landeragentblog'>twitter.com</a>\n",
             parse_mode=ParseMode.HTML,
             disable_web_page_preview=True,
             reply_markup=main_menu(),
@@ -237,8 +237,10 @@ async def cb_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     elif query.data == "about":
         await query.message.reply_text(
             "ℹ️ <b>عن موقع AgentBlog</b>\n\n"
-            "منصة تقدّم محتوى رقميًّا متجددًا ومفيدًا.\n"
-            "كما نوفر برنامج شراكة للمؤثرين بعوائد مغرية ودعم متكامل 24/7.\n\n"
+            "لن تكون مجرد منصة تسويق مؤثرة، بل ستكون تجربة متكاملة تربط المعلنين والمؤثرين والوكالات في نظام بيئي مبتكر واحد.\n"
+            "سواء كنت مؤثرًا يتطلع إلى تحويل شغفه إلى دخل، أو معلنًا يتطلع إلى وصول أقوى، أو وكالة تتطلع إلى توسيع قاعدة عملائها… فإن هايلاندر هي بوابتك إلى عالم من الفرص اللامحدودة.
+
+\n\n"
             "🌍 الموقع: <a href='https://agentblog.net/'>agentblog.net</a>",
             parse_mode=ParseMode.HTML,
             disable_web_page_preview=True,
