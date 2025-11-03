@@ -1,347 +1,155 @@
-# bot.py
-import os
-import logging
-from typing import Dict, Set, Tuple, Optional
+import telebot
+from telebot import types
+import requests
+import time
 
-from telegram import (
-    Update,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    ChatMember,
-)
-from telegram.constants import ParseMode
-from telegram.ext import (
-    Application,
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    ContextTypes,
-    PicklePersistence,
-)
+# === إعدادات البوت ===
+BOT_TOKEN = '8423080239:AAEWoBo5P7VYnwh7fsR9OPVINSE-b_dxoMI'
+CHANNEL_USERNAME = '@betbossio'
+PAYMENT_LINK = 'https://www.betboss.io/profile/payment?type=deposit'
+SIGNUP_LINK = 'https://www.betboss.io'
+REQUIRED_REFERRALS = 2
 
-# =================== الإعدادات العامة ===================
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+# ✅ فيديوهات تعليمية
+videos = [
+    {"title": "شرح التسجيل في موقع BetBoss", "url": "https://www.youtube.com/watch?v=hMteNczT620"},
+    {"title": "الإيداع الإلكتروني", "url": "https://www.youtube.com/watch?v=mDgbwEEQqMU"},
+    {"title": "Goal scorer / هدافين", "url": "https://www.youtube.com/watch?v=COm04zrADyo"},
+    {"title": "Specials / احتمالات مميزة", "url": "https://www.youtube.com/watch?v=S-2AEuumA_Y"},
+    {"title": "Cashout/كاش أوت", "url": "https://www.youtube.com/watch?v=h0WXnvYSIPQ"},
+    {"title": "Live sport/رياضة مباشر", "url": "https://www.youtube.com/watch?v=xISqwlj_rIc"},
+    {"title": "DRAW NOBET / تعادل لا رهان", "url": "https://www.youtube.com/watch?v=hVhX_-nU4QQ"},
+    {"title": "تذكرة متعددة Multi Ticket bet", "url": "https://www.youtube.com/watch?v=2Iv4-fZMNNk"},
+    {"title": "تذكرة نظام System ticket bet", "url": "https://www.youtube.com/watch?v=kTrH7CZMVQA"},
+    {"title": "First Goal 1x2", "url": "https://www.youtube.com/watch?v=zED1MDeAeTY"},
+    {"title": "INFO THE GG/NG", "url": "https://www.youtube.com/watch?v=CBdfjtcn3cU"},
+    {"title": "1x2", "url": "https://www.youtube.com/watch?v=52G02DTa4fE"},
+    {"title": "Correct score/النتيجة الصحيحة", "url": "https://www.youtube.com/watch?v=UWQpERfObtU"},
+    {"title": "Double Chance/فرصة مضاعفة", "url": "https://www.youtube.com/watch?v=dnQNy_QG9d0"},
 
-# توكن البوت من متغير البيئة (لا تضع التوكن داخل الكود)
-TOKEN = os.getenv("BOT_TOKEN")
-
-# اسم القناة المطلوب الاشتراك بها
-CHANNEL_USERNAME = "@Agentblognet"  # تأكد أن البوت Admin في القناة العامة
-
-# اسم المستخدم للبوت (يتم جلبه تلقائياً عند التشغيل)
-BOT_USERNAME_CACHE_KEY = "bot_username"
-
-# مفاتيح بيانات الحفظ
-KEY_INVITES = "invites"          # Dict[int, int]   -> {referrer_id: count}
-KEY_USERS = "users_registered"   # Set[int]         -> {user_ids who started once}
+    {"title": "Bet with Error/الخطأ في الرهان", "url": "https://www.youtube.com/watch?v=YKTTTL2TZyY"}
+]
 
 
-# =================== أدوات الواجهة ===================
-def main_menu() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("🌍 الموقع الرسمي", url="https://agentblog.net/")],
-            [InlineKeyboardButton("📱 السوشيال ميديا", callback_data="social")],
-            [InlineKeyboardButton("ℹ️ عن الموقع", callback_data="about")],
-            [InlineKeyboardButton("💰 برنامج الشراكة والمكافآت", callback_data="partner")],
-            [InlineKeyboardButton("🎁 مكافأة الدعوة", callback_data="reward")],
-        ]
-    )
+# ✅ هنا تضيف العرض الحالي
+current_offer = """🎁 العرض الحالي:
+سجل الآن على الموقع واحصل على 100% بونص على أول إيداع!
+لفترة محدودة فقط.
+
+🔥 العرض الثاني:
+شارك الرابط مع أصدقائك، وادعُ 2 أشخاص لتحصل على 50 جنيه مجانًا!
+
+📣 العرض الثالث:
+احصل على 50 جنيه مجانًا عند التسجيل في الموقع  !
+"""
 
 
-def join_check_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("📢 اشترك في القناة", url=f"https://t.me/{CHANNEL_USERNAME.lstrip('@')}")],
-            [InlineKeyboardButton("✅ تحقّق", callback_data="verify_sub")],
-        ]
-    )
 
 
-def share_keyboard(deep_link: str) -> InlineKeyboardMarkup:
-    # زر مشاركة يفتح واجهة المشاركة في تيليغرام مباشرة
-    share_url = f"https://t.me/share/url?url={deep_link}&text=جرب%20هذا%20البوت%20الرهيب%20🚀"
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("📣 شارك البوت الآن", url=share_url)],
-            [InlineKeyboardButton("🔄 تحديث الحالة", callback_data="reward")],
-            [InlineKeyboardButton("🏠 القائمة الرئيسية", callback_data="home")],
-        ]
-    )
+bot = telebot.TeleBot(BOT_TOKEN)
 
+# قاعدة بيانات بسيطة (ذاكرة مؤقتة)
+users = {}
+referrals = {}
 
-# =================== وظائف مساعدة ===================
-async def is_subscribed(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
-    """يتحقق من اشتراك المستخدم في القناة."""
+# === التحقق من متابعة القناة ===
+def is_user_subscribed(user_id):
     try:
-        member: ChatMember = await context.bot.get_chat_member(CHANNEL_USERNAME, user_id)
-        status = getattr(member, "status", "")
-        return status in ("member", "administrator", "creator")
-    except Exception as e:
-        logger.warning(f"Subscription check failed: {e}")
-        # لو القناة خاصة/أو البوت ليس أدمن، قد يفشل الفحص. سنعتبره غير مشترك.
+        status = bot.get_chat_member(CHANNEL_USERNAME, user_id).status
+        return status in ['member', 'creator', 'administrator']
+    except Exception:
         return False
 
+# === الأمر /start ===
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    user_id = message.from_user.id
+    username = message.from_user.username
 
-def ensure_persistence_buckets(context: ContextTypes.DEFAULT_TYPE) -> Tuple[Dict[int, int], Set[int]]:
-    """التأكد من إنشاء هياكل البيانات في التخزين الدائم."""
-    bot_data = context.bot_data
-    if KEY_INVITES not in bot_data:
-        bot_data[KEY_INVITES] = {}
-    if KEY_USERS not in bot_data:
-        bot_data[KEY_USERS] = set()
-    return bot_data[KEY_INVITES], bot_data[KEY_USERS]
+    # حفظ الإحالة إن وجدت
+    if len(message.text.split()) > 1:
+        referrer_id = message.text.split()[1]
+        if referrer_id != str(user_id):
+            referrals.setdefault(referrer_id, set()).add(user_id)
 
-
-def parse_ref_arg(args: list) -> Optional[int]:
-    """يرجع user_id المُحيل من وسيطة /start (صيغة: ref<id>)."""
-    if not args:
-        return None
-    token = args[0].strip()
-    if token.startswith("ref") and token[3:].isdigit():
-        return int(token[3:])
-    return None
-
-
-def get_bot_username_cached(context: ContextTypes.DEFAULT_TYPE) -> Optional[str]:
-    return context.bot_data.get(BOT_USERNAME_CACHE_KEY)
-
-
-def set_bot_username_cached(context: ContextTypes.DEFAULT_TYPE, username: str) -> None:
-    context.bot_data[BOT_USERNAME_CACHE_KEY] = username
-
-
-def make_deep_link(bot_username: str, user_id: int) -> str:
-    return f"https://t.me/{bot_username}?start=ref{user_id}"
-
-
-# =================== Handlers ===================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """أمر البداية + احتساب الإحالة إن وُجدت + فحص الاشتراك."""
-    ensure_persistence_buckets(context)
-    # خزّن اسم البوت للاستخدام في الروابط
-    if not get_bot_username_cached(context):
-        set_bot_username_cached(context, context.bot.username)
-
-    user = update.effective_user
-    user_id = user.id if user else None
-
-    # معالجة الإحالة من الوسيطة
-    referrer_id = parse_ref_arg(context.args)
-    invites_dict, users_set = ensure_persistence_buckets(context)
-
-    # إذا أول مرة هذا المستخدم يستخدم البوت نسجله
-    is_new_user = user_id not in users_set
-    if is_new_user:
-        users_set.add(user_id)
-        # لو لديه مُحيل صالح ومش نفسه، سجّل له دعوة
-        if referrer_id and referrer_id != user_id:
-            invites_dict[referrer_id] = invites_dict.get(referrer_id, 0) + 1
-
-    # فحص الاشتراك
-    if not await is_subscribed(context, user_id):
-        await update.message.reply_text(
-            "🔒 لا يمكنك استخدام البوت قبل الاشتراك في قناتنا الرسمية.\n\n"
-            f"القناة: <b>{CHANNEL_USERNAME}</b>\n\n"
-            "بعد الاشتراك اضغط <b>تحقّق</b>.",
-            parse_mode=ParseMode.HTML,
-            reply_markup=join_check_keyboard(),
-        )
+    if not is_user_subscribed(user_id):
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton('🔔 متابعة القناة', url=f'https://t.me/{CHANNEL_USERNAME[1:]}'))
+        markup.add(types.InlineKeyboardButton('✅ تم المتابعة', callback_data='check_sub'))
+        bot.send_message(user_id, '👋 للمتابعة، يرجى أولاً الاشتراك في القناة:', reply_markup=markup)
         return
 
-    # رسالة ترحيب + القائمة
-    await update.message.reply_text(
-        f"👋 أهلاً <b>{user.first_name}</b>!\n"
-        "اختر من القائمة بالأسفل للمتابعة:",
-        parse_mode=ParseMode.HTML,
-        reply_markup=main_menu(),
-    )
+    show_main_menu(user_id)
 
-
-async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """إظهار القائمة الرئيسية يدوياً."""
-    user = update.effective_user
-    if not await is_subscribed(context, user.id):
-        await update.message.reply_text(
-            "🔒 يجب الاشتراك أولاً.",
-            parse_mode=ParseMode.HTML,
-            reply_markup=join_check_keyboard(),
-        )
-        return
-
-    await update.message.reply_text(
-        "🏠 هذه هي القائمة الرئيسية:",
-        parse_mode=ParseMode.HTML,
-        reply_markup=main_menu(),
-    )
-
-
-async def cb_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """معالجة أزرار الـ Inline."""
-    query = update.callback_query
-    user = query.from_user
-    user_id = user.id
-    await query.answer()
-
-    # تحقق الاشتراك باستثناء زر التحقق نفسه
-    if query.data != "verify_sub":
-        if not await is_subscribed(context, user_id):
-            await query.message.reply_text(
-                "🔒 لا يمكنك المتابعة قبل الاشتراك.",
-                parse_mode=ParseMode.HTML,
-                reply_markup=join_check_keyboard(),
-            )
-            return
-
-    # اجلب اسم البوت المخزن لرابط الدعوة
-    bot_username = get_bot_username_cached(context) or context.bot.username
-    invites_dict, users_set = ensure_persistence_buckets(context)
-
-    if query.data == "verify_sub":
-        if await is_subscribed(context, user_id):
-            await query.message.reply_text(
-                "✅ تم التحقق من الاشتراك! تفضل بالقائمة الرئيسية:",
-                parse_mode=ParseMode.HTML,
-                reply_markup=main_menu(),
-            )
-        else:
-            await query.message.reply_text(
-                "❌ لم يتم العثور على اشتراك.\n"
-                "يرجى الاشتراك في القناة ثم الضغط على <b>تحقّق</b>.",
-                parse_mode=ParseMode.HTML,
-                reply_markup=join_check_keyboard(),
-            )
-
-    elif query.data == "home":
-        await query.message.reply_text(
-            "🏠 القائمة الرئيسية:",
-            parse_mode=ParseMode.HTML,
-            reply_markup=main_menu(),
-        )
-
-    elif query.data == "social":
-        await query.message.reply_text(
-            "📱 <b>تابعنا على السوشيال ميديا</b>\n\n"
-            f"• قناة تيليغرام: <a href='https://t.me/{CHANNEL_USERNAME.lstrip('@')}'>@{CHANNEL_USERNAME.lstrip('@')}</a>\n"
-            "• فيسبوك: <a href='https://www.facebook.com/profile.php?id=61579717285065'>facebook.com</a>\n"
-            "• إنستغرام: <a href='https://www.instagram.com/landeragentblog/'>instagram.com</a>\n"
-            "• تويتر / X: <a href='https://x.com/landeragentblog'>twitter.com</a>\n",
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True,
-            reply_markup=main_menu(),
-        )
-
-    elif query.data == "about":
-        await query.message.reply_text(
-            "ℹ️ <b>عن موقع AgentBlog</b>\n\n"
-            "سواء كنت مؤثرًا يتطلع إلى تحويل شغفه إلى دخل، أو معلنًا يتطلع إلى وصول أقوى، "
-            "أو وكالة تتطلع إلى توسيع قاعدة عملائها… فإن <b>هايلاندر</b> هي بوابتك إلى عالم من الفرص اللامحدود.\n\n"
-            "لن تكون مجرد منصة تسويق مؤثرة، بل ستكون تجربة متكاملة تربط المعلنين والمؤثرين والوكالات "
-            "في نظام بيئي مبتكر واحد.\n\n"
-            "🌍 الموقع: <a href='https://agentblog.net/'>agentblog.net</a>",
-            parse_mode=ParseMode.HTML,
-            disable_web_page_preview=True,
-            reply_markup=main_menu(),
-        )
-
-
-
-    elif query.data == "partner":
-        await query.message.reply_text(
-            "💰 <b>العائد المغري والشراكة مع هايلاندر</b>\n\n"
-            "• <b>رابط أفلييت مخصص لك:</b> تحصل على رابط فريد يحمل اسمك لمتابعة النتائج بدقة.\n"
-            "• <b>عوائد مجزية:</b> عمولة على البيع أو التحويل، دفع مقابل الظهور، ودفع مقابل النقرة.\n"
-            "• <b>انتشار سهل:</b> شارك على فيسبوك، إنستغرام، تويتر، وتيك توك بضغطة زر.\n"
-            "• <b>دعم متكامل 24/7:</b> فريق مختص يساندك ويقدّم لك أفضل الممارسات.\n\n"
-            "✨ شراكتك معنا فرصة لبناء دخل مستمر وتوسيع حضورك الرقمي بخطوات عملية.",
-            parse_mode=ParseMode.HTML,
-            reply_markup=main_menu(),
-        )
-
-    elif query.data == "reward":
-        # تقدّم المستخدم في الدعوات
-        count = invites_dict.get(user_id, 0)
-        deep_link = make_deep_link(bot_username, user_id)
-
-        if count < 2:
-            await query.message.reply_text(
-                "🎁 <b>مكافأة الدعوة</b>\n\n"
-                "ادعُ صديقين لبدء استخدام البوت لتحصل على مكافأتك ✨\n"
-                f"التقدّم الحالي: <b>{count}/2</b>\n\n"
-                "هذا هو <b>رابط دعوتك الفريد</b>:\n"
-                f"<code>{deep_link}</code>\n\n"
-                "اضغط الزر بالأسفل لمشاركة الرابط مباشرة داخل تيليغرام:",
-                parse_mode=ParseMode.HTML,
-                reply_markup=share_keyboard(deep_link),
-                disable_web_page_preview=True,
-            )
-        else:
-            await query.message.reply_text(
-                "🎉 <b>مبروك!</b>\n"
-                "لقد أكملت دعوة شخصين بنجاح وحصلت على مكافأتك من AgentBlog 🚀",
-                parse_mode=ParseMode.HTML,
-                reply_markup=main_menu(),
-            )
-
+# === التحقق من المتابعة ===
+@bot.callback_query_handler(func=lambda call: call.data == 'check_sub')
+def check_subscription(call):
+    if is_user_subscribed(call.from_user.id):
+        show_main_menu(call.from_user.id)
     else:
-        await query.message.reply_text(
-            "❓ خيار غير معروف. استخدم القائمة:",
-            parse_mode=ParseMode.HTML,
-            reply_markup=main_menu(),
-        )
+        bot.answer_callback_query(call.id, '❌ تأكد من أنك مشترك بالقناة أولاً')
+
+# === القائمة الرئيسية ===
+def show_main_menu(user_id):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton('📝 أنشئ حساب على الموقع', url=SIGNUP_LINK))
+    markup.add(types.InlineKeyboardButton('💳 رابط الدفع', url=PAYMENT_LINK))
+    markup.add(types.InlineKeyboardButton('📤 شارك البوت للحصول على 50 جنيه', callback_data='share_bot'))
+    markup.add(types.InlineKeyboardButton('🔄 تحقق من العروض', callback_data='check_offers'))
+    markup.add(types.InlineKeyboardButton('🎥 فيديوات تعليمية', callback_data='show_videos'))
+    bot.send_message(user_id, '🎁 مرحباً! إليك خدماتنا المتاحة:', reply_markup=markup)
+    markup.add(types.InlineKeyboardButton('🎥 فيديوات تعليمية', callback_data='show_videos'))
 
 
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """إظهار رصيد الدعوات للمستخدم."""
-    invites_dict, _ = ensure_persistence_buckets(context)
-    user_id = update.effective_user.id
-    count = invites_dict.get(user_id, 0)
-    await update.message.reply_text(
-        f"📊 دعواتك المسجّلة: <b>{count}</b>",
-        parse_mode=ParseMode.HTML,
-        reply_markup=main_menu(),
-    )
+# === مشاركة البوت ===
+    @bot.callback_query_handler(func=lambda call: call.data == 'share_bot')
+    def handle_share(call):
+        user_id = call.from_user.id
+        username = call.from_user.username or "بدون اسم مستخدم"
+        link = f'https://t.me/{bot.get_me().username}?start={user_id}'
+        count = len(referrals.get(str(user_id), []))
+
+        # إنشاء الرسالة التي تُعرض للمستخدم
+        msg = f'🔗 شارك هذا الرابط مع أصدقائك:\n{link}\n\n👥 الإحالات: {count}/{REQUIRED_REFERRALS}'
+
+        if count >= REQUIRED_REFERRALS:
+            msg += '\n✅  مبروك! تم تأهيلك للحصول على 50 جنيه في الموقع سوف يتواصل معك الادمن.'
+
+            # ✅ إرسال تنبيه للأدمن مرة واحدة فقط (باستخدام مفتاح تحقق)
+            if not users.get(user_id, {}).get('notified'):
+                admin_id = 7568738262
+                notification = (
+                    "📩 مستخدم جديد استوفى شرط الدعوة:\n\n"
+                    f"👤 Username: @{username}\n"
+                    f"🆔 ID: {user_id}\n"
+                    "مؤهل للحصول على 50 جنيه."
+                )
+                bot.send_message(admin_id, notification)
+
+                # حفظ أنه تم الإشعار
+                users.setdefault(user_id, {})['notified'] = True
+        else:
+            msg += '\n🎯 احصل على 50 جنيه عند دعوة شخصين.'
+
+        bot.send_message(user_id, msg)
+
+# === العروض ===
+@bot.callback_query_handler(func=lambda call: call.data == 'check_offers')
+def handle_offers(call):
+    if current_offer.strip():
+        bot.send_message(call.from_user.id, current_offer)
+    else:
+        bot.send_message(call.from_user.id, '📭 لا يوجد عرض الآن، يمكنك الانتظار، قريباً.')
+
+# === فيديوهات ===
+@bot.callback_query_handler(func=lambda call: call.data == 'show_videos')
+def show_videos(call):
+    text = "🎓 فيديوات تعليمية:\n\n"
+    for v in videos:
+        text += f"📌 {v['title']}\n▶️ {v['url']}\n\n"
+    bot.send_message(call.from_user.id, text)
 
 
-# =================== تشغيل التطبيق ===================
-def main() -> None:
-    if not TOKEN:
-        raise RuntimeError("Environment variable BOT_TOKEN is not set.")
-
-    # تخزين بسيط على القرص أثناء عمل السيرفر
-    persistence = PicklePersistence(filepath="bot_data.pkl")
-
-    app: Application = (
-        ApplicationBuilder()
-        .token(TOKEN)
-        .persistence(persistence)
-        .build()
-    )
-
-    # مساعدة: احفظ اسم المستخدم عند الإقلاع (احتياطي)
-    async def cache_bot_username(app_: Application) -> None:
-        try:
-            me = await app_.bot.get_me()
-            app_.bot_data[BOT_USERNAME_CACHE_KEY] = me.username
-        except Exception as e:
-            logger.warning(f"Could not cache bot username: {e}")
-
-    app.post_init = cache_bot_username
-
-    # الأوامر
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("menu", menu))
-    app.add_handler(CommandHandler("stats", stats))
-
-    # الأزرار
-    app.add_handler(CallbackQueryHandler(cb_handler))
-
-    logger.info("Bot is running...")
-    app.run_polling(allowed_updates=Update.ALL_TYPES)
-
-
-if __name__ == "__main__":
-    main()
+# === تشغيل البوت ===
+print('🤖 البوت يعمل الآن...')
+bot.infinity_polling()
