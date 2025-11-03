@@ -7,7 +7,7 @@ import time
 BOT_TOKEN = '8423080239:AAEWoBo5P7VYnwh7fsR9OPVINSE-b_dxoMI'
 CHANNEL_USERNAME = '@betbossio'
 PAYMENT_LINK = 'https://www.betboss.io/profile/payment?type=deposit'
-SIGNUP_LINK = 'https://www.betboss.io'
+SIGNUP_LINK = 'https://go.aff.partnersbetboss.io/8oilt2ra'
 REQUIRED_REFERRALS = 2
 
 # ✅ فيديوهات تعليمية
